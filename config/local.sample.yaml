@@ -1,0 +1,13 @@
+env: "local"
+database:
+  host: DB_HOST
+  port: DB_PORT
+  dbname: DB_NAME
+  user: DB_USER
+  password: DB_PASSWORD
+  ssl_mode: DB_SSLMODE
+  migrations_path: MIGRATIONS_PATH
+http_server:
+  address: "localhost:8081"
+  timeout: 4s
+  idle_timeout: 60s
