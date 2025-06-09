@@ -1,34 +1,36 @@
 package postgres
 
 import (
-	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres" // add postgresql driver for migrations
 	_ "github.com/golang-migrate/migrate/v4/source/file"       // add source from file for migrations
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 )
 
 type Storage struct {
-	Conn *pgx.Conn
+	DB *sql.DB
 }
 
 func NewStorage(connectionString string) (*Storage, error) {
 	const fn = "storage.postgres.NewStorage"
 
-	conn, err := pgx.Connect(context.Background(), connectionString)
-
+	pgxConfig, err := pgx.ParseConfig(connectionString)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", fn, err)
 	}
 
-	err = conn.Ping(context.Background())
+	conn := stdlib.OpenDB(*pgxConfig)
+
+	err = conn.Ping()
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", fn, err)
 	}
 
-	return &Storage{Conn: conn}, nil
+	return &Storage{DB: conn}, nil
 }
 
 func Migrate(connectionString string, migrationsPath string) error {
@@ -50,8 +52,8 @@ func Migrate(connectionString string, migrationsPath string) error {
 func (storage *Storage) Close() error {
 	const fn = "storage.postgres.Close"
 
-	if storage.Conn != nil {
-		err := storage.Conn.Close(context.Background())
+	if storage.DB != nil {
+		err := storage.DB.Close()
 		if err != nil {
 			return fmt.Errorf("%s: %w", fn, err)
 		}
