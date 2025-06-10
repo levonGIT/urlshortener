@@ -1,9 +1,12 @@
 package main
 
 import (
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"log/slog"
 	"os"
 	"urlShortener/internal/config"
+	reqLogger "urlShortener/internal/http-server/middleware/logger"
 	"urlShortener/internal/lib/logger/sl"
 	"urlShortener/internal/storage/postgres"
 )
@@ -30,6 +33,14 @@ func main() {
 	} else {
 		log.Info("migrating database")
 	}
+
+	router := chi.NewRouter()
+
+	router.Use(middleware.RequestID)
+	router.Use(reqLogger.New(log))
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.URLFormat)
+
 }
 
 func setupLogger(env string) *slog.Logger {
