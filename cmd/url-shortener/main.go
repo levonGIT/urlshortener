@@ -1,14 +1,12 @@
 package main
 
 import (
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"log/slog"
+	"net/http"
 	"os"
 	"urlShortener/internal/config"
-	reqLogger "urlShortener/internal/http-server/middleware/logger"
-	"urlShortener/internal/lib/logger/sl"
-	"urlShortener/internal/storage/postgres"
+	"urlShortener/internal/http-server/router"
+	db "urlShortener/internal/storage/postgres"
 )
 
 func main() {
@@ -19,28 +17,29 @@ func main() {
 	log.Info("starting url-shortener", slog.String("env", cfg.Env))
 	log.Debug("debug messages are enabled")
 
-	storage, err := postgres.NewStorage(config.GetDBConnectionString(cfg))
-	if err != nil {
-		log.Error("failed to connect to database", sl.Err(err))
-		os.Exit(1)
-	}
-	defer CloseStorage(storage, log)
+	db.InitDB(cfg, log)
+	defer db.DisconnectDB()
 	log.Info("connected to database")
 
-	err = postgres.Migrate(config.GetDBConnectionString(cfg), cfg.Database.MigrationsPath)
-	if err != nil {
-		log.Error("failed to migrate database", sl.Err(err))
-	} else {
-		log.Info("migrating database")
+	serve(cfg, log)
+}
+
+func serve(cfg *config.Config, logger *slog.Logger) {
+	r := router.InitRouter(logger)
+
+	server := &http.Server{
+		Addr:         cfg.Address,
+		Handler:      r,
+		ReadTimeout:  cfg.Timeout,
+		WriteTimeout: cfg.Timeout,
+		IdleTimeout:  cfg.IdleTimeout,
 	}
 
-	router := chi.NewRouter()
+	logger.Info("starting server", slog.String("address", cfg.Address))
 
-	router.Use(middleware.RequestID)
-	router.Use(reqLogger.New(log))
-	router.Use(middleware.Recoverer)
-	router.Use(middleware.URLFormat)
-
+	if err := server.ListenAndServe(); err != nil {
+		logger.Error("Error starting server", err, slog.String("address", cfg.Address))
+	}
 }
 
 func setupLogger(env string) *slog.Logger {
@@ -56,12 +55,4 @@ func setupLogger(env string) *slog.Logger {
 	}
 
 	return log
-}
-
-func CloseStorage(storage *postgres.Storage, log *slog.Logger) {
-	err := storage.Close()
-	if err != nil {
-		log.Error("failed to close database", sl.Err(err))
-	}
-	log.Info("closed database")
 }

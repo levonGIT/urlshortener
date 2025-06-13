@@ -9,28 +9,53 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"       // add source from file for migrations
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
+	"log/slog"
+	"os"
+	"urlShortener/internal/config"
+	"urlShortener/internal/lib/logger/sl"
+	sqlc "urlShortener/internal/storage/dbqueries"
 )
 
-type Storage struct {
-	DB *sql.DB
+var (
+	DB      *sql.DB
+	Queries *sqlc.Queries
+)
+
+func InitDB(cfg *config.Config, logger *slog.Logger) {
+	connStr := config.GetDBConnectionString(cfg)
+
+	err := ConnectDB(connStr)
+	if err != nil {
+		logger.Error("failed to connect to database", sl.Err(err))
+		os.Exit(1)
+	}
+
+	err = Migrate(connStr, cfg.Database.MigrationsPath)
+	if err != nil {
+		logger.Error("failed to migrate database", sl.Err(err))
+	} else {
+		logger.Info("migrating database")
+	}
 }
 
-func NewStorage(connectionString string) (*Storage, error) {
+func ConnectDB(connectionString string) error {
 	const fn = "storage.postgres.NewStorage"
 
 	pgxConfig, err := pgx.ParseConfig(connectionString)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", fn, err)
+		return fmt.Errorf("%s: %w", fn, err)
 	}
 
-	conn := stdlib.OpenDB(*pgxConfig)
+	DB = stdlib.OpenDB(*pgxConfig)
 
-	err = conn.Ping()
+	err = DB.Ping()
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", fn, err)
+		return fmt.Errorf("%s: %w", fn, err)
 	}
 
-	return &Storage{DB: conn}, nil
+	Queries = sqlc.New(DB)
+
+	return nil
 }
 
 func Migrate(connectionString string, migrationsPath string) error {
@@ -49,14 +74,8 @@ func Migrate(connectionString string, migrationsPath string) error {
 	return nil
 }
 
-func (storage *Storage) Close() error {
-	const fn = "storage.postgres.Close"
-
-	if storage.DB != nil {
-		err := storage.DB.Close()
-		if err != nil {
-			return fmt.Errorf("%s: %w", fn, err)
-		}
+func DisconnectDB() {
+	if DB != nil {
+		DB.Close()
 	}
-	return nil
 }

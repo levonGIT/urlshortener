@@ -1,4 +1,4 @@
-package create
+package urlhandler
 
 import (
 	"context"
@@ -7,11 +7,10 @@ import (
 	"github.com/go-playground/validator/v10"
 	"net/http"
 	"urlShortener/internal/http-server/api/response"
-	"urlShortener/internal/http-server/handlers"
-	"urlShortener/internal/lib/logger/sl"
 	"urlShortener/internal/lib/urlgen"
 	"urlShortener/internal/storage"
 	"urlShortener/internal/storage/dbqueries"
+	db "urlShortener/internal/storage/postgres"
 )
 
 const (
@@ -28,16 +27,12 @@ type Response struct {
 	Alias string `json:"alias"`
 }
 
-func Create(h handlers.Handlers, w http.ResponseWriter, r *http.Request) {
-	const fn = "handlers.url.create"
-
+func Create(w http.ResponseWriter, r *http.Request) {
 	var req Request
 
 	err := render.DecodeJSON(r.Body, &req)
 	if err != nil {
 		msg := "failed to decode request body"
-
-		h.Logger.Error(msg, sl.Err(err))
 
 		render.JSON(w, r, response.Error(msg))
 
@@ -58,18 +53,16 @@ func Create(h handlers.Handlers, w http.ResponseWriter, r *http.Request) {
 		alias = urlgen.New(urlLen)
 	}
 
-	url, err := h.Queries.InsertUrl(context.Background(), dbqueries.InsertUrlParams{
+	url, err := db.Queries.InsertUrl(context.Background(), dbqueries.InsertUrlParams{
 		Alias: alias,
 		Url:   req.Url,
 	})
 	if errors.Is(err, storage.ErrUrlExists) {
 		msg := "url alias already exists"
-		h.Logger.Error(msg, sl.Err(err))
 		render.JSON(w, r, response.Error(msg))
 	}
 	if err != nil {
 		msg := "failed to create url"
-		h.Logger.Error(msg, sl.Err(err))
 		render.JSON(w, r, response.Error(msg))
 	}
 
