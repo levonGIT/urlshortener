@@ -28,4 +28,6 @@ func setupMiddleware(router chi.Router, logger *slog.Logger) {
 
 func registerUrlRoutes(r chi.Router) {
 	r.Post("/url", urlhandler.Create)
+	r.Patch("/url/{id}", urlhandler.Update)
+	r.Get("/{alias}", urlhandler.Get)
 }
