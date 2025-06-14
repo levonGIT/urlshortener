@@ -13,7 +13,9 @@ VALUES ($1, $2)
 RETURNING *;
 
 -- name: UpdateUrl :execrows
-UPDATE urls SET alias = $2
+UPDATE urls SET
+alias = coalesce(sqlc.narg('alias'), alias),
+count = coalesce(sqlc.narg('count'), count)
 WHERE id = $1;
 
 -- name: DeleteUrl :execrows

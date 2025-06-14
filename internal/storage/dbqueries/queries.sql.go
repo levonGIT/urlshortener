@@ -7,6 +7,7 @@ package dbqueries
 
 import (
 	"context"
+	"database/sql"
 )
 
 const deleteUrl = `-- name: DeleteUrl :execrows
@@ -119,17 +120,20 @@ func (q *Queries) InsertUrl(ctx context.Context, arg InsertUrlParams) (Url, erro
 }
 
 const updateUrl = `-- name: UpdateUrl :execrows
-UPDATE urls SET alias = $2
+UPDATE urls SET
+alias = coalesce($2, alias),
+count = coalesce($3, count)
 WHERE id = $1
 `
 
 type UpdateUrlParams struct {
 	ID    int32
-	Alias string
+	Alias sql.NullString
+	Count sql.NullInt32
 }
 
 func (q *Queries) UpdateUrl(ctx context.Context, arg UpdateUrlParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, updateUrl, arg.ID, arg.Alias)
+	result, err := q.db.ExecContext(ctx, updateUrl, arg.ID, arg.Alias, arg.Count)
 	if err != nil {
 		return 0, err
 	}
