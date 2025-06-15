@@ -115,11 +115,11 @@ func Update(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
-	_, err = db.Queries.UpdateUrl(context.Background(), dbqueries.UpdateUrlParams{
+	updated, err := db.Queries.UpdateUrl(context.Background(), dbqueries.UpdateUrlParams{
 		ID:    int32(id64),
 		Alias: sql.NullString{String: req.Alias, Valid: req.Alias != ""},
 	})
-	if errors.Is(err, storage.ErrUrlNotFound) {
+	if errors.Is(err, storage.ErrUrlNotFound) || updated == 0 {
 		render.Status(r, http.StatusNotFound)
 		render.JSON(w, r, response.Error("url not found"))
 
